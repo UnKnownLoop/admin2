@@ -24,6 +24,7 @@ const AdminAnalytics = () => {
   };
 
 
+
   // Add this debugging code near the beginning of your component
   useEffect(() => {
     console.log("Current state values:");
@@ -32,117 +33,124 @@ const AdminAnalytics = () => {
   }, [totalOrders, analyticsData]);
 
 
-  
+
   // Debug the timeRange changes
   useEffect(() => {
     console.log("Time range changed to:", timeRange);
   }, [timeRange]);
-  
+
   // Modify the fetchAnalyticsData function to properly calculate total sales
 
-useEffect(() => {
-  const fetchAnalyticsData = async () => {
-    try {
-      setLoading(true);
-      console.log(`Fetching analytics data for timeRange: ${timeRange}`);
-      
-      const response = await axios.get(
-        "https://yappari-coffee-bar.shop/api/analytics.php",
-        {
-          params: { 
-            timeRange,
-            _t: new Date().getTime() // Cache-busting
-          },
-          withCredentials: true,
+  useEffect(() => {
+    const fetchAnalyticsData = async () => {
+      try {
+        setLoading(true);
+        console.log(`Fetching analytics data for timeRange: ${timeRange}`);
+
+        const response = await axios.get(
+          "https://yappari-coffee-bar.shop/api/analytics.php",
+          {
+            params: {
+              timeRange,
+              _t: new Date().getTime() // Cache-busting
+            },
+            withCredentials: true,
+          }
+        );
+
+        console.log("Analytics API Response:", response.data);
+
+        if (response.data) {
+          setAnalyticsData(response.data);
+
+          // Calculate total sales based on the current time range's data
+          let calculatedTotal = 0;
+
+          // If the API returns a specific totalSales value, use that
+          if (response.data.totalSales !== undefined) {
+            calculatedTotal = response.data.totalSales;
+            console.log("Using API-provided totalSales:", calculatedTotal);
+          }
+          if (timeRange === "monthly") {
+            calculatedTotal = response.data.salesData?.reduce(
+              (sum, item) => sum + (parseFloat(item.amount) || 0),
+              0
+            ) || 0;
+          }
+
+          // Otherwise, if salesData is available, calculate from it
+          else if (response.data.salesData && Array.isArray(response.data.salesData)) {
+            calculatedTotal = response.data.salesData.reduce(
+              (sum, item) => sum + (parseFloat(item.amount) || 0),
+              0
+            );
+            console.log("Calculated totalSales from salesData array:", calculatedTotal);
+          }
+          // If the response itself is an array, calculate from that
+          else if (Array.isArray(response.data)) {
+            calculatedTotal = response.data.reduce(
+              (sum, item) => sum + (parseFloat(item.amount) || 0),
+              0
+            );
+            console.log("Calculated totalSales from response array:", calculatedTotal);
+          }
+
+          // Set the total sales state with the calculated value for the current time range
+          setTotalSales(calculatedTotal);
+
+          setError(null);
+        } else {
+          setError("Received invalid data format from server");
+          setAnalyticsData(null);
         }
-      );
-      
-      console.log("Analytics API Response:", response.data);
-      
-      if (response.data) {
-        setAnalyticsData(response.data);
-        
-        // Calculate total sales based on the current time range's data
-        let calculatedTotal = 0;
-        
-        // If the API returns a specific totalSales value, use that
-        if (response.data.totalSales !== undefined) {
-          calculatedTotal = response.data.totalSales;
-          console.log("Using API-provided totalSales:", calculatedTotal);
-        } 
-        // Otherwise, if salesData is available, calculate from it
-        else if (response.data.salesData && Array.isArray(response.data.salesData)) {
-          calculatedTotal = response.data.salesData.reduce(
-            (sum, item) => sum + (parseFloat(item.amount) || 0), 
-            0
-          );
-          console.log("Calculated totalSales from salesData array:", calculatedTotal);
-        } 
-        // If the response itself is an array, calculate from that
-        else if (Array.isArray(response.data)) {
-          calculatedTotal = response.data.reduce(
-            (sum, item) => sum + (parseFloat(item.amount) || 0), 
-            0
-          );
-          console.log("Calculated totalSales from response array:", calculatedTotal);
-        }
-        
-        // Set the total sales state with the calculated value for the current time range
-        setTotalSales(calculatedTotal);
-        
-        setError(null);
-      } else {
-        setError("Received invalid data format from server");
+      } catch (error) {
+        console.error("Failed to fetch analytics data:", error);
+        setError(`Failed to load analytics data: ${error.message}`);
         setAnalyticsData(null);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Failed to fetch analytics data:", error);
-      setError(`Failed to load analytics data: ${error.message}`);
-      setAnalyticsData(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  fetchAnalyticsData();
-}, [timeRange]);
-  
+    };
+
+    fetchAnalyticsData();
+  }, [timeRange]);
+
   // Function to handle timeRange change
   const handleTimeRangeChange = (newRange) => {
     console.log(`Changing time range from ${timeRange} to ${newRange}`);
     setTimeRange(newRange);
   };
 
-/**
-  useEffect(() => {
-    const fetchTotalSales = async () => {
-      try {
-        const response = await axios.get(
-          "https://yappari-coffee-bar.shop/api/total_sales",
-          { withCredentials: true }
-        );
-        console.log("Total Sales API Response:", response.data);
-  
-        if (response.data && response.data.total_sales !== undefined) {
-          setTotalSales(response.data.total_sales);
-        } else {
-          console.error("Invalid total_sales data:", response.data);
-          setTotalSales(0); // Default to 0 if data is invalid
+  /**
+    useEffect(() => {
+      const fetchTotalSales = async () => {
+        try {
+          const response = await axios.get(
+            "https://yappari-coffee-bar.shop/api/total_sales",
+            { withCredentials: true }
+          );
+          console.log("Total Sales API Response:", response.data);
+    
+          if (response.data && response.data.total_sales !== undefined) {
+            setTotalSales(response.data.total_sales);
+          } else {
+            console.error("Invalid total_sales data:", response.data);
+            setTotalSales(0); // Default to 0 if data is invalid
+          }
+        } catch (error) {
+          console.error("Failed to fetch total sales:", error);
+          setTotalSales(0); // Default to 0 on error
         }
-      } catch (error) {
-        console.error("Failed to fetch total sales:", error);
-        setTotalSales(0); // Default to 0 on error
-      }
-    };
-  
-    fetchTotalSales();
-  }, []);
-   */
+      };
+    
+      fetchTotalSales();
+    }, []);
+     */
 
- 
 
-  
-  
+
+
+
 
   // Fetch user count from database
   useEffect(() => {
@@ -309,38 +317,38 @@ useEffect(() => {
   }, [activeTab]);
 
   // Fetch dishes
-useEffect(() => {
-  const fetchDishes = async () => {
-    if (activeTab === "dishes") {
-      try {
-        setLoadingDishes(true);
-        const response = await axios.get("https://yappari-coffee-bar.shop/api/dishesAdmin.php", {
-          withCredentials: true,
-        });
-        console.log("Dishes API Response:", response.data);
-        if (response.data && response.data.success && Array.isArray(response.data.dishes)) {
-          setDishes(response.data.dishes);
-          setDishesError(null);
-        } else if (Array.isArray(response.data)) {
-          // Handle alternative response format
-          setDishes(response.data);
-          setDishesError(null);
-        } else {
-          console.error("Unexpected API response:", response.data);
+  useEffect(() => {
+    const fetchDishes = async () => {
+      if (activeTab === "dishes") {
+        try {
+          setLoadingDishes(true);
+          const response = await axios.get("https://yappari-coffee-bar.shop/api/dishesAdmin.php", {
+            withCredentials: true,
+          });
+          console.log("Dishes API Response:", response.data);
+          if (response.data && response.data.success && Array.isArray(response.data.dishes)) {
+            setDishes(response.data.dishes);
+            setDishesError(null);
+          } else if (Array.isArray(response.data)) {
+            // Handle alternative response format
+            setDishes(response.data);
+            setDishesError(null);
+          } else {
+            console.error("Unexpected API response:", response.data);
+            setDishes([]);
+            setDishesError("Invalid response format from server");
+          }
+        } catch (error) {
+          console.error("Fetch Dishes Error:", error.response?.data || error.message);
+          setDishesError("Failed to load dishes.");
           setDishes([]);
-          setDishesError("Invalid response format from server");
+        } finally {
+          setLoadingDishes(false);
         }
-      } catch (error) {
-        console.error("Fetch Dishes Error:", error.response?.data || error.message);
-        setDishesError("Failed to load dishes.");
-        setDishes([]);
-      } finally {
-        setLoadingDishes(false);
       }
-    }
-  };
-  fetchDishes();
-}, [activeTab]);
+    };
+    fetchDishes();
+  }, [activeTab]);
 
   // Handle logout
   const handleLogout = async () => {
@@ -356,47 +364,47 @@ useEffect(() => {
     }
   };
 
- // Dashboard card - Update this function to properly handle monthly total sales
-const renderDashboardCards = () => {
-  let displayTotalSales = totalSales || 0; // Default to state value
-  let displayTotalOrders = totalOrders || 0; // Default to state value from API
-  let displayTotalUsers = userCount || 0;
+  // Dashboard card - Update this function to properly handle monthly total sales
+  const renderDashboardCards = () => {
+    let displayTotalSales = totalSales || 0; // Default to state value
+    let displayTotalOrders = totalOrders || 0; // Default to state value from API
+    let displayTotalUsers = userCount || 0;
 
-  // Only update sales and users from analyticsData if available
-  if (!loading && !error && analyticsData) {
-    if (Array.isArray(analyticsData)) {
-      displayTotalSales = analyticsData.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
-      // DO NOT update displayTotalOrders here
-    } else if (typeof analyticsData === 'object') {
-      // Check if we have totalSales in the response and update based on current timeRange
-      if (analyticsData.totalSales !== undefined) {
-        // Use the totalSales from analyticsData which should be for the correct time period
-        displayTotalSales = analyticsData.totalSales;
-      } else if (analyticsData.salesData && Array.isArray(analyticsData.salesData)) {
-        // If there's no direct totalSales but we have salesData, calculate from the array
-        displayTotalSales = analyticsData.salesData.reduce(
-          (sum, item) => sum + (parseFloat(item.amount) || 0), 
-          0
-        );
+    /**  Only update sales and users from analyticsData if available
+    if (!loading && !error && analyticsData) {
+      if (Array.isArray(analyticsData)) {
+        displayTotalSales = analyticsData.reduce((sum, item) => sum + (parseFloat(item.amount) || 0), 0);
+        // DO NOT update displayTotalOrders here
+      } else if (typeof analyticsData === 'object') {
+        // Check if we have totalSales in the response and update based on current timeRange
+        if (analyticsData.totalSales !== undefined) {
+          // Use the totalSales from analyticsData which should be for the correct time period
+          displayTotalSales = analyticsData.totalSales;
+        } else if (analyticsData.salesData && Array.isArray(analyticsData.salesData)) {
+          // If there's no direct totalSales but we have salesData, calculate from the array
+          displayTotalSales = analyticsData.salesData.reduce(
+            (sum, item) => sum + (parseFloat(item.amount) || 0), 
+            0
+          );
+        }
+        
+        if (analyticsData.totalUsers !== undefined) {
+          displayTotalUsers = analyticsData.totalUsers;
+        }
+        // DO NOT update displayTotalOrders from analyticsData
       }
-      
-      if (analyticsData.totalUsers !== undefined) {
-        displayTotalUsers = analyticsData.totalUsers;
-      }
-      // DO NOT update displayTotalOrders from analyticsData
-    }
-  }
+    }*/
 
-  const getTimeRangeText = () => {
-    if (timeRange === "daily") return "Last 7 days";
-    if (timeRange === "monthly") return "Last 30 days"; // Changed to "Last 30 days"
-    return "Last year";
-  };
+    const getTimeRangeText = () => {
+      if (timeRange === "daily") return "Last 7 days";
+      if (timeRange === "monthly") return "Last 30 days"; // Changed to "Last 30 days"
+      return "Last year";
+    };
 
     return (
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-[#E8E9F1] p-4 rounded-lg">
-   {/* Total Sales Card */}
-   <div className="bg-white p-6 rounded-lg shadow-sm">
+        {/* Total Sales Card */}
+        <div className="bg-white p-6 rounded-lg shadow-sm">
           <h3 className="text-[#2F3A8F] text-xl font-bold mb-4">Total Sales</h3>
           <div className="flex flex-col">
             <p className="text-2xl font-bold text-gray-800">₱{displayTotalSales.toLocaleString()}</p>
@@ -426,206 +434,206 @@ const renderDashboardCards = () => {
   };
 
   //chart analytics
- // Chart rendering
- const renderChart = () => {
-  if (loading) return <div className="text-center py-10 md:py-20">Loading data...</div>;
-  if (error) return <div className="text-center py-10 md:py-20 text-red-600">{error}</div>;
+  // Chart rendering
+  const renderChart = () => {
+    if (loading) return <div className="text-center py-10 md:py-20">Loading data...</div>;
+    if (error) return <div className="text-center py-10 md:py-20 text-red-600">{error}</div>;
 
-  // Extract the chart data from the response structure
-  const chartData = analyticsData?.salesData ||
-    (Array.isArray(analyticsData) ? analyticsData : []);
+    // Extract the chart data from the response structure
+    const chartData = analyticsData?.salesData ||
+      (Array.isArray(analyticsData) ? analyticsData : []);
 
-  // If chartData is empty or not available
-  if (!chartData || chartData.length === 0) {
-    return <div className="text-center py-10 md:py-20">No data available for this time period</div>;
-  }
+    // If chartData is empty or not available
+    if (!chartData || chartData.length === 0) {
+      return <div className="text-center py-10 md:py-20">No data available for this time period</div>;
+    }
 
-  // Calculate chart dimensions dynamically
-  const getChartDimensions = () => {
-    // Base dimensions for mobile
-    const base = {
-      width: "100%", // Full width of container
-      height: 250,   // Smaller height on mobile
-      padding: 25,   // Smaller padding on mobile
-      labelFontSize: 8, // Smaller font on mobile
-      pointRadius: 3, // Smaller points on mobile
-      strokeWidth: 1.5 // Thinner lines on mobile
+    // Calculate chart dimensions dynamically
+    const getChartDimensions = () => {
+      // Base dimensions for mobile
+      const base = {
+        width: "100%", // Full width of container
+        height: 250,   // Smaller height on mobile
+        padding: 25,   // Smaller padding on mobile
+        labelFontSize: 8, // Smaller font on mobile
+        pointRadius: 3, // Smaller points on mobile
+        strokeWidth: 1.5 // Thinner lines on mobile
+      };
+
+      // Dimensions for tablet and up (sm: 640px+)
+      const sm = {
+        height: 280,
+        padding: 30,
+        labelFontSize: 9,
+        pointRadius: 3.5,
+        strokeWidth: 1.8
+      };
+
+      // Dimensions for medium screens (md: 768px+)
+      const md = {
+        height: 300,
+        padding: 40,
+        labelFontSize: 10,
+        pointRadius: 4,
+        strokeWidth: 2
+      };
+
+      return {
+        ...base,
+        tablet: sm,
+        desktop: md
+      };
     };
 
-    // Dimensions for tablet and up (sm: 640px+)
-    const sm = {
-      height: 280,
-      padding: 30,
-      labelFontSize: 9,
-      pointRadius: 3.5,
-      strokeWidth: 1.8
+    const dimensions = getChartDimensions();
+
+    // For responsive SVG, we'll use viewBox instead of fixed width/height
+    const baseWidth = 700; // Reference width for viewBox
+    const baseHeight = dimensions.height;
+    const basePadding = dimensions.padding;
+
+    // Find max value for scaling (with safe fallback)
+    const maxValue = Math.max(...chartData.map(item => parseFloat(item.amount) || 0), 1);
+
+    // Generate SVG path for line chart based on viewBox coordinates
+    const generatePath = () => {
+      const availableWidth = baseWidth - (basePadding * 2);
+      const availableHeight = baseHeight - (basePadding * 2);
+
+      return chartData.map((item, index) => {
+        const x = basePadding + (index * (availableWidth / (chartData.length - 1 || 1)));
+        const y = baseHeight - basePadding - (((parseFloat(item.amount) || 0) / maxValue) * availableHeight);
+        return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+      }).join(' ');
     };
 
-    // Dimensions for medium screens (md: 768px+)
-    const md = {
-      height: 300,
-      padding: 40,
-      labelFontSize: 10,
-      pointRadius: 4,
-      strokeWidth: 2
-    };
-
-    return {
-      ...base,
-      tablet: sm,
-      desktop: md
-    };
-  };
-
-  const dimensions = getChartDimensions();
-
-  // For responsive SVG, we'll use viewBox instead of fixed width/height
-  const baseWidth = 700; // Reference width for viewBox
-  const baseHeight = dimensions.height;
-  const basePadding = dimensions.padding;
-
-  // Find max value for scaling (with safe fallback)
-  const maxValue = Math.max(...chartData.map(item => parseFloat(item.amount) || 0), 1);
-
-  // Generate SVG path for line chart based on viewBox coordinates
-  const generatePath = () => {
-    const availableWidth = baseWidth - (basePadding * 2);
-    const availableHeight = baseHeight - (basePadding * 2);
-
-    return chartData.map((item, index) => {
-      const x = basePadding + (index * (availableWidth / (chartData.length - 1 || 1)));
-      const y = baseHeight - basePadding - (((parseFloat(item.amount) || 0) / maxValue) * availableHeight);
-      return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-    }).join(' ');
-  };
-
-  return (
-    <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg shadow-md overflow-x-auto">
-      {/* Debug info for developers */}
-      <div className="text-xs text-gray-400 mb-2">
-        Data points: {chartData.length} • Time range: {timeRange}
-      </div>
-      
-      {/* Responsive container for the chart */}
-      <div className="min-w-full">
-        {/* SVG with viewBox for responsive scaling */}
-        <svg className="w-full" viewBox={`0 0 ${baseWidth} ${baseHeight}`} preserveAspectRatio="xMidYMid meet">
-          {/* Y-axis */}
-          <line
-            x1={basePadding}
-            y1={basePadding}
-            x2={basePadding}
-            y2={baseHeight - basePadding}
-            stroke="#888"
-            strokeWidth="1"
-          />
-
-          {/* X-axis */}
-          <line
-            x1={basePadding}
-            y1={baseHeight - basePadding}
-            x2={baseWidth - basePadding}
-            y2={baseHeight - basePadding}
-            stroke="#888"
-            strokeWidth="1"
-          />
-
-          {/* Data line */}
-          <path
-            d={generatePath()}
-            fill="none"
-            stroke="#1C359A"
-            strokeWidth={dimensions.strokeWidth}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-
-          {/* Data points and labels */}
-          {chartData.map((item, index) => {
-            const availableWidth = baseWidth - (basePadding * 2);
-            const availableHeight = baseHeight - (basePadding * 2);
-            const x = basePadding + (index * (availableWidth / (chartData.length - 1 || 1)));
-            const y = baseHeight - basePadding - (((parseFloat(item.amount) || 0) / maxValue) * availableHeight);
-
-            return (
-              <g key={index}>
-                {/* Data point */}
-                <circle
-                  cx={x}
-                  cy={y}
-                  r={dimensions.pointRadius}
-                  fill="#1C359A"
-                />
-
-                {/* X-axis label (conditionally shown based on data density) */}
-                <text
-                  x={x}
-                  y={baseHeight - basePadding + 15}
-                  textAnchor="middle"
-                  fontSize={dimensions.labelFontSize}
-                  className={chartData.length > 10 ? "hidden sm:inline" : ""}
-                >
-                  {item.label || `Item ${index + 1}`}
-                </text>
-
-                {/* Value label (only shown on hover or for important points) */}
-                <text
-                  x={x}
-                  y={y - 10}
-                  textAnchor="middle"
-                  fontSize={dimensions.labelFontSize}
-                  className={chartData.length > 6 ? "hidden sm:inline" : ""}
-                >
-                  ₱{(parseFloat(item.amount) || 0).toLocaleString()}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Y-axis labels */}
-          <text
-            x={basePadding - 5}
-            y={baseHeight - basePadding}
-            textAnchor="end"
-            fontSize={dimensions.labelFontSize}
-          >
-            0
-          </text>
-          <text
-            x={basePadding - 5}
-            y={basePadding}
-            textAnchor="end"
-            fontSize={dimensions.labelFontSize}
-          >
-            ₱{maxValue.toLocaleString()}
-          </text>
-
-          {/* Add middle y-axis label */}
-          <text
-            x={basePadding - 5}
-            y={(baseHeight - basePadding + basePadding) / 2}
-            textAnchor="end"
-            fontSize={dimensions.labelFontSize}
-          >
-            ₱{(maxValue / 2).toLocaleString()}
-          </text>
-        </svg>
-      </div>
-
-      {/* Mobile-friendly legend when there are many data points */}
-      {chartData.length > 10 && (
-        <div className="sm:hidden mt-4 flex flex-wrap justify-center gap-2 text-xs">
-          {chartData.map((item, index) => (
-            <div key={index} className="flex items-center">
-              <div className="w-2 h-2 rounded-full bg-blue-600 mr-1"></div>
-              <span>{item.label}: ₱{(parseFloat(item.amount) || 0).toLocaleString()}</span>
-            </div>
-          ))}
+    return (
+      <div className="bg-white p-3 sm:p-4 md:p-6 rounded-lg shadow-md overflow-x-auto">
+        {/* Debug info for developers */}
+        <div className="text-xs text-gray-400 mb-2">
+          Data points: {chartData.length} • Time range: {timeRange}
         </div>
-      )}
-    </div>
-  );
-};
+
+        {/* Responsive container for the chart */}
+        <div className="min-w-full">
+          {/* SVG with viewBox for responsive scaling */}
+          <svg className="w-full" viewBox={`0 0 ${baseWidth} ${baseHeight}`} preserveAspectRatio="xMidYMid meet">
+            {/* Y-axis */}
+            <line
+              x1={basePadding}
+              y1={basePadding}
+              x2={basePadding}
+              y2={baseHeight - basePadding}
+              stroke="#888"
+              strokeWidth="1"
+            />
+
+            {/* X-axis */}
+            <line
+              x1={basePadding}
+              y1={baseHeight - basePadding}
+              x2={baseWidth - basePadding}
+              y2={baseHeight - basePadding}
+              stroke="#888"
+              strokeWidth="1"
+            />
+
+            {/* Data line */}
+            <path
+              d={generatePath()}
+              fill="none"
+              stroke="#1C359A"
+              strokeWidth={dimensions.strokeWidth}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+
+            {/* Data points and labels */}
+            {chartData.map((item, index) => {
+              const availableWidth = baseWidth - (basePadding * 2);
+              const availableHeight = baseHeight - (basePadding * 2);
+              const x = basePadding + (index * (availableWidth / (chartData.length - 1 || 1)));
+              const y = baseHeight - basePadding - (((parseFloat(item.amount) || 0) / maxValue) * availableHeight);
+
+              return (
+                <g key={index}>
+                  {/* Data point */}
+                  <circle
+                    cx={x}
+                    cy={y}
+                    r={dimensions.pointRadius}
+                    fill="#1C359A"
+                  />
+
+                  {/* X-axis label (conditionally shown based on data density) */}
+                  <text
+                    x={x}
+                    y={baseHeight - basePadding + 15}
+                    textAnchor="middle"
+                    fontSize={dimensions.labelFontSize}
+                    className={chartData.length > 10 ? "hidden sm:inline" : ""}
+                  >
+                    {item.label || `Item ${index + 1}`}
+                  </text>
+
+                  {/* Value label (only shown on hover or for important points) */}
+                  <text
+                    x={x}
+                    y={y - 10}
+                    textAnchor="middle"
+                    fontSize={dimensions.labelFontSize}
+                    className={chartData.length > 6 ? "hidden sm:inline" : ""}
+                  >
+                    ₱{(parseFloat(item.amount) || 0).toLocaleString()}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Y-axis labels */}
+            <text
+              x={basePadding - 5}
+              y={baseHeight - basePadding}
+              textAnchor="end"
+              fontSize={dimensions.labelFontSize}
+            >
+              0
+            </text>
+            <text
+              x={basePadding - 5}
+              y={basePadding}
+              textAnchor="end"
+              fontSize={dimensions.labelFontSize}
+            >
+              ₱{maxValue.toLocaleString()}
+            </text>
+
+            {/* Add middle y-axis label */}
+            <text
+              x={basePadding - 5}
+              y={(baseHeight - basePadding + basePadding) / 2}
+              textAnchor="end"
+              fontSize={dimensions.labelFontSize}
+            >
+              ₱{(maxValue / 2).toLocaleString()}
+            </text>
+          </svg>
+        </div>
+
+        {/* Mobile-friendly legend when there are many data points */}
+        {chartData.length > 10 && (
+          <div className="sm:hidden mt-4 flex flex-wrap justify-center gap-2 text-xs">
+            {chartData.map((item, index) => (
+              <div key={index} className="flex items-center">
+                <div className="w-2 h-2 rounded-full bg-blue-600 mr-1"></div>
+                <span>{item.label}: ₱{(parseFloat(item.amount) || 0).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
   // Render tabs content
   // Render tabs content
   const renderTabContent = () => {
@@ -756,145 +764,145 @@ const renderDashboardCards = () => {
           </div>
         );
 
-        case "dishes":
-          return (
-            <div className="bg-white p-4 md:p-6 rounded-lg shadow-md">
-              <h3 className="text-lg md:text-xl font-semibold mb-2 md:mb-4">Dishes</h3>
-              {loadingDishes ? (
-                <p>Loading dishes data...</p>
-              ) : dishesError ? (
-                <p className="text-red-500">{dishesError}</p>
-              ) : !dishes || dishes.length === 0 ? (
-                <p>No dishes found.</p>
-              ) : (
-                <>
-                  {/* Desktop and tablet view */}
-                  <div className="hidden sm:block overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Dish Name</th>
-                          <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                          <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Small</th>
-                          <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Medium</th>
-                          <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Large</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {dishes.map((dish) => (
-                          <tr key={dish.food_id}>
-                            <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">{dish.dish_name || "Unknown"}</td>
-                            <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">{dish.category || "Uncategorized"}</td>
-                            
-                            {/* Small size */}
-                            <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">
-                              {dish.price_small ? (
-                                <div>
-                                  <div>₱{dish.price_small}</div>
-                                  <span className={`px-2 py-1 rounded-md text-xs ${dish.availability_small === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                    {dish.availability_small || "N/A"}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">N/A</span>
-                              )}
-                            </td>
-                            
-                            {/* Medium size */}
-                            <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">
-                              {dish.price_medium ? (
-                                <div>
-                                  <div>₱{dish.price_medium}</div>
-                                  <span className={`px-2 py-1 rounded-md text-xs ${dish.availability_medium === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                    {dish.availability_medium || "N/A"}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">N/A</span>
-                              )}
-                            </td>
-                            
-                            {/* Large size */}
-                            <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">
-                              {dish.price_large ? (
-                                <div>
-                                  <div>₱{dish.price_large}</div>
-                                  <span className={`px-2 py-1 rounded-md text-xs ${dish.availability_large === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                    {dish.availability_large || "N/A"}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-gray-400">N/A</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-        
-                  {/* Mobile view */}
-                  <div className="sm:hidden space-y-3">
-                    {dishes.map((dish) => (
-                      <div key={dish.food_id} className="bg-gray-50 p-3 rounded-lg">
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-medium text-sm">{dish.dish_name || "Unknown"}</span>
-                          <span className="text-xs font-medium">{dish.category || "Uncategorized"}</span>
-                        </div>
-                        
-                        <div className="grid grid-cols-3 gap-2 mt-2">
-                          {/* Small size mobile */}
-                          <div className="bg-white p-2 rounded border">
-                            <div className="text-xs font-medium mb-1">Small</div>
+      case "dishes":
+        return (
+          <div className="bg-white p-4 md:p-6 rounded-lg shadow-md">
+            <h3 className="text-lg md:text-xl font-semibold mb-2 md:mb-4">Dishes</h3>
+            {loadingDishes ? (
+              <p>Loading dishes data...</p>
+            ) : dishesError ? (
+              <p className="text-red-500">{dishesError}</p>
+            ) : !dishes || dishes.length === 0 ? (
+              <p>No dishes found.</p>
+            ) : (
+              <>
+                {/* Desktop and tablet view */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Dish Name</th>
+                        <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
+                        <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Small</th>
+                        <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Medium</th>
+                        <th className="px-2 py-2 md:px-6 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">Large</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {dishes.map((dish) => (
+                        <tr key={dish.food_id}>
+                          <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">{dish.dish_name || "Unknown"}</td>
+                          <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">{dish.category || "Uncategorized"}</td>
+
+                          {/* Small size */}
+                          <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">
                             {dish.price_small ? (
-                              <>
-                                <div className="text-xs">₱{dish.price_small}</div>
-                                <span className={`inline-block mt-1 px-2 py-1 rounded-md text-xs ${dish.availability_small === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                              <div>
+                                <div>₱{dish.price_small}</div>
+                                <span className={`px-2 py-1 rounded-md text-xs ${dish.availability_small === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                                   {dish.availability_small || "N/A"}
                                 </span>
-                              </>
+                              </div>
                             ) : (
-                              <span className="text-gray-400 text-xs">N/A</span>
+                              <span className="text-gray-400">N/A</span>
                             )}
-                          </div>
-                          
-                          {/* Medium size mobile */}
-                          <div className="bg-white p-2 rounded border">
-                            <div className="text-xs font-medium mb-1">Medium</div>
+                          </td>
+
+                          {/* Medium size */}
+                          <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">
                             {dish.price_medium ? (
-                              <>
-                                <div className="text-xs">₱{dish.price_medium}</div>
-                                <span className={`inline-block mt-1 px-2 py-1 rounded-md text-xs ${dish.availability_medium === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                              <div>
+                                <div>₱{dish.price_medium}</div>
+                                <span className={`px-2 py-1 rounded-md text-xs ${dish.availability_medium === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                                   {dish.availability_medium || "N/A"}
                                 </span>
-                              </>
+                              </div>
                             ) : (
-                              <span className="text-gray-400 text-xs">N/A</span>
+                              <span className="text-gray-400">N/A</span>
                             )}
-                          </div>
-                          
-                          {/* Large size mobile */}
-                          <div className="bg-white p-2 rounded border">
-                            <div className="text-xs font-medium mb-1">Large</div>
+                          </td>
+
+                          {/* Large size */}
+                          <td className="px-2 py-2 md:px-6 md:py-4 whitespace-nowrap text-xs md:text-sm">
                             {dish.price_large ? (
-                              <>
-                                <div className="text-xs">₱{dish.price_large}</div>
-                                <span className={`inline-block mt-1 px-2 py-1 rounded-md text-xs ${dish.availability_large === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                              <div>
+                                <div>₱{dish.price_large}</div>
+                                <span className={`px-2 py-1 rounded-md text-xs ${dish.availability_large === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                                   {dish.availability_large || "N/A"}
                                 </span>
-                              </>
+                              </div>
                             ) : (
-                              <span className="text-gray-400 text-xs">N/A</span>
+                              <span className="text-gray-400">N/A</span>
                             )}
-                          </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Mobile view */}
+                <div className="sm:hidden space-y-3">
+                  {dishes.map((dish) => (
+                    <div key={dish.food_id} className="bg-gray-50 p-3 rounded-lg">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium text-sm">{dish.dish_name || "Unknown"}</span>
+                        <span className="text-xs font-medium">{dish.category || "Uncategorized"}</span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 mt-2">
+                        {/* Small size mobile */}
+                        <div className="bg-white p-2 rounded border">
+                          <div className="text-xs font-medium mb-1">Small</div>
+                          {dish.price_small ? (
+                            <>
+                              <div className="text-xs">₱{dish.price_small}</div>
+                              <span className={`inline-block mt-1 px-2 py-1 rounded-md text-xs ${dish.availability_small === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                {dish.availability_small || "N/A"}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-gray-400 text-xs">N/A</span>
+                          )}
+                        </div>
+
+                        {/* Medium size mobile */}
+                        <div className="bg-white p-2 rounded border">
+                          <div className="text-xs font-medium mb-1">Medium</div>
+                          {dish.price_medium ? (
+                            <>
+                              <div className="text-xs">₱{dish.price_medium}</div>
+                              <span className={`inline-block mt-1 px-2 py-1 rounded-md text-xs ${dish.availability_medium === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                {dish.availability_medium || "N/A"}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-gray-400 text-xs">N/A</span>
+                          )}
+                        </div>
+
+                        {/* Large size mobile */}
+                        <div className="bg-white p-2 rounded border">
+                          <div className="text-xs font-medium mb-1">Large</div>
+                          {dish.price_large ? (
+                            <>
+                              <div className="text-xs">₱{dish.price_large}</div>
+                              <span className={`inline-block mt-1 px-2 py-1 rounded-md text-xs ${dish.availability_large === "Available" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                {dish.availability_large || "N/A"}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-gray-400 text-xs">N/A</span>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-          );
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        );
       default:
         return null;
     }
@@ -1075,24 +1083,24 @@ const renderDashboardCards = () => {
                 handleLogout(e);
               }}
             >
-             <button
-  className="w-full font-medium flex items-center justify-center space-x-2 bg-[#1C359A] hover:bg-blue-800 text-white px-4 py-3 rounded-lg transition-colors duration-200"
->
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width="20" 
-    height="20" 
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-  >
-    <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-    <polyline points="16 17 21 12 16 7" />
-    <line x1="21" y1="12" x2="9" y2="12" />
-  </svg>
-  <span>SIGN OUT</span>
-</button>
+              <button
+                className="w-full font-medium flex items-center justify-center space-x-2 bg-[#1C359A] hover:bg-blue-800 text-white px-4 py-3 rounded-lg transition-colors duration-200"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                >
+                  <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                <span>SIGN OUT</span>
+              </button>
             </Link>
           </div>
         </div>
@@ -1104,54 +1112,51 @@ const renderDashboardCards = () => {
             <h1 className="text-2xl font-bold text-[#1C359A] mb-2">Sales Analytics</h1>
             <p className="text-gray-600">View and analyze your coffee shop's performance</p>
           </div>
-{/* Time Range Selector */}
-<div className="mb-6">
-        <div className="inline-flex rounded-md shadow-sm">
-          <button
-            onClick={() => handleTimeRangeChange("daily")}
-            className={`px-6 py-2 rounded-l-lg ${
-              timeRange === "daily"
-                ? "bg-[#1C359A] text-white"
-                : "bg-white text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            Daily
-          </button>
-          <button
-            onClick={() => handleTimeRangeChange("monthly")}
-            className={`px-6 py-2 ${
-              timeRange === "monthly"
-                ? "bg-[#1C359A] text-white"
-                : "bg-white text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            Monthly
-          </button>
-          <button
-            onClick={() => handleTimeRangeChange("yearly")}
-            className={`px-6 py-2 rounded-r-lg ${
-              timeRange === "yearly"
-                ? "bg-[#1C359A] text-white"
-                : "bg-white text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            Yearly
-          </button>
-        </div>
-      </div>
+          {/* Time Range Selector */}
+          <div className="mb-6">
+            <div className="inline-flex rounded-md shadow-sm">
+              <button
+                onClick={() => handleTimeRangeChange("daily")}
+                className={`px-6 py-2 rounded-l-lg ${timeRange === "daily"
+                    ? "bg-[#1C359A] text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+              >
+                Daily
+              </button>
+              <button
+                onClick={() => handleTimeRangeChange("monthly")}
+                className={`px-6 py-2 ${timeRange === "monthly"
+                    ? "bg-[#1C359A] text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+              >
+                Monthly
+              </button>
+              <button
+                onClick={() => handleTimeRangeChange("yearly")}
+                className={`px-6 py-2 rounded-r-lg ${timeRange === "yearly"
+                    ? "bg-[#1C359A] text-white"
+                    : "bg-white text-gray-700 hover:bg-gray-100"
+                  }`}
+              >
+                Yearly
+              </button>
+            </div>
+          </div>
 
-      {/* Dashboard Cards */}
-      {renderDashboardCards()}
+          {/* Dashboard Cards */}
+          {renderDashboardCards()}
 
-      {/* Chart Title */}
-      <h2 className="font-semibold text-lg mb-4">
-        {timeRange === "daily" && "Daily sales (last 7 days)"}
-        {timeRange === "monthly" && "Monthly sales (last 30 days)"}
-        {timeRange === "yearly" && "Yearly sales"}
-      </h2>
+          {/* Chart Title */}
+          <h2 className="font-semibold text-lg mb-4">
+            {timeRange === "daily" && "Daily sales (last 7 days)"}
+            {timeRange === "monthly" && "Monthly sales (last 30 days)"}
+            {timeRange === "yearly" && "Yearly sales"}
+          </h2>
 
-      {/* Sales Chart */}
-      {renderChart()}
+          {/* Sales Chart */}
+          {renderChart()}
           {/* Tabbed Interface */}
           <div className="mt-8">
             <h2 className="font-semibold text-lg mb-4">Order Analysis</h2>
